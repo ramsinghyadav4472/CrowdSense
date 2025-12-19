@@ -19,7 +19,9 @@ const userIcon = createIcon('#3b82f6'); // Blue for current user
 interface MapComponentProps {
     users: any[];
     userLocation: { lat: number; lng: number } | null;
-    className?: string; // Enhanced with className support
+    className?: string;
+    radius?: number;
+    safeZoneLocation?: { lat: number; lng: number } | null;
 }
 
 import { useMapContext } from '../context/MapContext';
@@ -48,7 +50,7 @@ const MapUpdater = ({ userLocation }: { userLocation: { lat: number; lng: number
     return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, className }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, className, radius = 50, safeZoneLocation }) => {
     // Default to London if no location found yet
     const defaultPosition = { lat: 51.505, lng: -0.09 };
     const center = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : defaultPosition;
@@ -83,6 +85,20 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
 
                 <MapUpdater userLocation={userLocation} />
 
+                {/* Safe Zone Highlight */}
+                {safeZoneLocation && (
+                    <>
+                        <Circle
+                            center={[safeZoneLocation.lat, safeZoneLocation.lng]}
+                            radius={40}
+                            pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.3, weight: 2, dashArray: '5, 5' }}
+                        />
+                        <Marker position={[safeZoneLocation.lat, safeZoneLocation.lng]} icon={createIcon('#16a34a')}>
+                            <Popup>Safe Zone (Recommended)</Popup>
+                        </Marker>
+                    </>
+                )}
+
                 {/* Current User */}
                 {userLocation && (
                     <>
@@ -91,7 +107,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
                         </Marker>
                         <Circle
                             center={[userLocation.lat, userLocation.lng]}
-                            radius={80}
+                            radius={radius}
                             pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }}
                         />
                     </>
