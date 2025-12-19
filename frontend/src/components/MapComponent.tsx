@@ -19,13 +19,18 @@ const userIcon = createIcon('#3b82f6'); // Blue for current user
 interface MapComponentProps {
     users: any[];
     userLocation: { lat: number; lng: number } | null;
-    className?: string; // Enhanced with className support
+    className?: string;
+    radius?: number; // Feature 3: Dynamic Radius
+    safeZoneLocation?: { lat: number; lng: number } | null; // Feature 5: Safe Zone
 }
 
 import { useMapContext } from '../context/MapContext';
 
+// ... MapUpdater component ...
+
 // Component to handle map center updates smoothly
 const MapUpdater = ({ userLocation }: { userLocation: { lat: number; lng: number } | null }) => {
+    // ... existing MapUpdater logic ...
     const map = useMap();
     const { flyToLocation } = useMapContext();
     const [hasFlownToUser, setHasFlownToUser] = React.useState(false);
@@ -48,7 +53,7 @@ const MapUpdater = ({ userLocation }: { userLocation: { lat: number; lng: number
     return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, className }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, className, radius = 50, safeZoneLocation }) => {
     // Default to London if no location found yet
     const defaultPosition = { lat: 51.505, lng: -0.09 };
     const center = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : defaultPosition;
@@ -89,19 +94,18 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
                         <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
                             <Popup className="font-sans font-semibold">You are here</Popup>
                         </Marker>
+                        {/* Feature 3: Radius Visualization */}
                         <Circle
                             center={[userLocation.lat, userLocation.lng]}
-                            radius={80}
-                            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }}
+                            radius={radius}
+                            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1, dashArray: '4' }}
                         />
                     </>
                 )}
 
                 {/* Crowd Markers */}
                 {users.map((user: any, idx: number) => {
-                    // Safety check if user has location
                     if (!user.location || !user.location.y || !user.location.x) return null;
-                    // Don't show self if in list
                     if (userLocation && user.username === 'me') return null;
 
                     return (
@@ -114,6 +118,26 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
                         </Marker>
                     );
                 })}
+
+                {/* Safe Zone Highlight - Feature 5 */}
+                {safeZoneLocation && (
+                    <>
+                        <Circle
+                            center={[safeZoneLocation.lat, safeZoneLocation.lng]}
+                            radius={radius * 0.8}
+                            pathOptions={{
+                                color: '#22c55e',
+                                fillColor: '#22c55e',
+                                fillOpacity: 0.2,
+                                weight: 2,
+                                dashArray: '5, 10'
+                            }}
+                        />
+                        <Marker position={[safeZoneLocation.lat, safeZoneLocation.lng]} icon={createIcon('#22c55e')}>
+                            <Popup>Safe Zone (Recommended)</Popup>
+                        </Marker>
+                    </>
+                )}
             </MapContainer>
 
             {/* Overlay Gradient for modern feel */}

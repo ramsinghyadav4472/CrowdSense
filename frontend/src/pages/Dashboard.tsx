@@ -3,13 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useLocationContext } from '../context/LocationContext';
 import { Edit2 } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
-import StatCard from '../components/dashboard/StatCard';
 import AlertBanner from '../components/dashboard/AlertBanner';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import SavedLocations from '../components/dashboard/SavedLocations';
-import CrowdComparison from '../components/dashboard/CrowdComparison';
 import EmergencyButton from '../components/dashboard/EmergencyButton';
-import { Users, MapPin, TrendingUp, Navigation, Pause, Activity, CheckCircle } from 'lucide-react';
+import { MapPin, Navigation, Activity } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Define User Interface
@@ -24,10 +22,20 @@ interface OtherUser {
 }
 
 const Dashboard = () => {
-    const { user } = useAuth();
-    const { location, trackingEnabled, setTrackingEnabled, isManual, setManualLocation, accuracy, resetToGPS } = useLocationContext();
+    const { user: _user } = useAuth(); // Keep for auth check if needed, or just remove
+    const { location, trackingEnabled, isManual, setManualLocation, accuracy, resetToGPS } = useLocationContext();
+
+    // Feature 1 & 4: Crowd States
     const [crowdDensity, setCrowdDensity] = useState<'Low' | 'Medium' | 'Heavy'>('Low');
-    const [activeUsers, setActiveUsers] = useState(0);
+    const [crowdCount, setCrowdCount] = useState(12); // Initial count
+    const [lastSpikeTime, setLastSpikeTime] = useState<number | null>(null);
+    const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+    // Feature 3: Radius Selection
+    const [detectionRadius, setDetectionRadius] = useState<25 | 50 | 100>(50);
+
+    // Feature 5: Safe Zone
+    const [safeZone, setSafeZone] = useState<{ lat: number, lng: number } | null>(null);
 
     // Accuracy Warning Effect
     useEffect(() => {
@@ -47,7 +55,6 @@ const Dashboard = () => {
     const handleManualLocationSearch = async () => {
         if (!manualSearchQuery.trim()) return;
         try {
-            // Toaster notification start?
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(manualSearchQuery)}`);
             const data = await response.json();
             if (data && data.length > 0) {
@@ -63,43 +70,81 @@ const Dashboard = () => {
         }
     };
 
-    // ... (keep existing mocks)
     const [otherUsers, setOtherUsers] = useState<OtherUser[]>([]);
 
+    // SMART CROWD LOGIC SIMULATION
     useEffect(() => {
-        // ... (existing websocket logic placeholder)
-        // Simulating data updates for "Real-time" feel
         const interval = setInterval(() => {
-            setActiveUsers(() => Math.floor(Math.random() * 50) + 100);
-            // Mock crowd density changes
-            const densities: ('Low' | 'Medium' | 'Heavy')[] = ['Low', 'Medium', 'Heavy'];
-            setCrowdDensity(densities[Math.floor(Math.random() * densities.length)]);
+            // 1. Calculate new random crowd count based on radius (larger radius = more people)
+            const baseCount = detectionRadius === 25 ? 10 : detectionRadius === 50 ? 50 : 120;
+            const variance = Math.floor(Math.random() * 20) - 5;
+            const newCount = Math.max(0, baseCount + variance);
 
-            // Mock other users movement
+            // Feature 2: Spike Detection
+            setCrowdCount(prev => {
+                const diff = newCount - prev;
+                if (diff > 15) { // Threshold for spike
+                    toast('Sudden Crowd Spike Detected!', {
+                        icon: '📈',
+                        style: {
+                            borderRadius: '10px',
+                            background: '#ef4444',
+                            color: '#fff',
+                        },
+                        duration: 4000
+                    });
+                    setLastSpikeTime(Date.now());
+                }
+                return newCount;
+            });
+
+            // Determine Density Level
+            let newDensity: 'Low' | 'Medium' | 'Heavy' = 'Low';
+            if (newCount > 35) newDensity = 'Heavy';
+            else if (newCount > 15) newDensity = 'Medium';
+            setCrowdDensity(newDensity);
+
+            // Feature 4: Cooldown Timer (Simulated)
+            if (newDensity === 'Heavy') {
+                setCooldownRemaining(30); // Reset cooldown to 30s when heavy
+            } else if (cooldownRemaining > 0) {
+                setCooldownRemaining(prev => Math.max(0, prev - 5));
+            }
+
+            // Feature 5: Auto Safe Zone (Generate a point 100m away)
+            if (newDensity === 'Heavy' && location) {
+                // Determine a point ~0.001 degrees away
+                setSafeZone({
+                    lat: location.lat + 0.0015,
+                    lng: location.lng + 0.0015
+                });
+            } else {
+                setSafeZone(null);
+            }
+
+            // Update Mock Users
             setOtherUsers(() => {
-                // Generate some dummy users around the current location or a fixed point if no location
                 const centerLat = location?.lat || 51.505;
                 const centerLng = location?.lng || -0.09;
-                return Array.from({ length: 5 }).map((_, i) => ({
+                return Array.from({ length: Math.min(newCount, 50) }).map((_, i) => ({
                     id: i,
                     username: `User ${i}`,
                     location: {
-                        y: centerLat + (Math.random() - 0.5) * 0.01,
-                        x: centerLng + (Math.random() - 0.5) * 0.01
+                        y: centerLat + (Math.random() - 0.5) * (detectionRadius * 0.00002),
+                        x: centerLng + (Math.random() - 0.5) * (detectionRadius * 0.00002)
                     },
-                    density: Math.random() * 10
+                    density: Math.random() * 100
                 }));
             });
 
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [location]);
+    }, [location, detectionRadius]); // Re-run when radius changes
 
     // State for user's address
     const [addressName, setAddressName] = useState<string | null>(null);
 
-    // Reverse Geocoding Effect (Updated to dep on location)
     useEffect(() => {
         if (location) {
             const fetchAddress = async () => {
@@ -108,12 +153,9 @@ const Dashboard = () => {
                     const data = await response.json();
                     if (data && data.address) {
                         const city = data.address.city || data.address.town || data.address.village || 'Unknown City';
-                        const country = data.address.country || '';
-                        setAddressName(`${city}, ${country}`);
+                        setAddressName(city);
                     }
                 } catch (error) {
-                    console.error("Failed to fetch address", error);
-                    // Fallback to coordinates if fetch fails
                     setAddressName(`${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`);
                 }
             };
@@ -121,193 +163,157 @@ const Dashboard = () => {
         }
     }, [location]);
 
-    // Update location when it changes
-    useEffect(() => {
-        if (location && user) {
-            // sendLocation implementation here
-        }
-    }, [location, user]);
-
     const handleQuickAction = (action: string) => {
         toast.success(`${action} Activated!`, {
             icon: '🚀',
-            style: {
-                borderRadius: '10px',
-                background: '#333',
-                color: '#fff',
-            },
+            style: { borderRadius: '10px', background: '#333', color: '#fff' },
         });
+    };
+
+    // Helper for Density Color
+    const getDensityColor = (d: string) => {
+        switch (d) {
+            case 'Heavy': return 'bg-red-500 text-white shadow-red-500/30';
+            case 'Medium': return 'bg-yellow-500 text-white shadow-yellow-500/30';
+            default: return 'bg-green-500 text-white shadow-green-500/30';
+        }
     };
 
     return (
         <DashboardLayout>
             <div className="space-y-6 animate-in fade-in duration-500">
 
-                {/* 1. Header & Status */}
+                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-extrabold text-black dark:text-white drop-shadow-sm">
-                            Welcome back, {user?.username} 👋
+                            Dashboard
                         </h1>
-                        <p className="text-black/80 dark:text-gray-200 text-sm flex items-center gap-2 mt-1 font-semibold">
-                            <span className={`inline-block w-2.5 h-2.5 rounded-full ${trackingEnabled ? 'bg-green-600 animate-pulse' : 'bg-gray-500'}`}></span>
-                            {isManual ? 'Manual Location' : (trackingEnabled ? 'Live Tracking Active' : 'Tracking Paused')}
-                            <span className="text-gray-400 dark:text-gray-500">|</span>
-                            {location ? `Location: ${addressName || 'Locating...'}` : 'Locating...'}
-
-                            <button
-                                onClick={() => setIsEditingLocation(!isEditingLocation)}
-                                className="ml-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-500 transition-colors"
-                                title="Wrong location? Click to edit"
-                            >
-                                <Edit2 size={14} />
-                            </button>
-                            {isManual && (
-                                <button
-                                    onClick={resetToGPS}
-                                    className="ml-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-indigo-600 transition-colors"
-                                    title="Auto-detect my location"
-                                >
-                                    <MapPin size={14} />
-                                </button>
-                            )}
+                        <p className="text-black/80 dark:text-gray-400 text-sm flex items-center gap-2 mt-1 font-semibold">
+                            {location ? `📍 ${addressName || 'Locating...'}` : 'Locating...'}
+                            <button onClick={() => setIsEditingLocation(!isEditingLocation)} className="text-gray-400 hover:text-indigo-500"><Edit2 size={12} /></button>
+                            {isManual && <button onClick={resetToGPS} title="Reset to GPS" className="text-indigo-500"><MapPin size={12} /></button>}
                         </p>
-
                         {isEditingLocation && (
-                            <div className="mt-2 flex gap-2 animate-in fade-in slide-in-from-top-1">
-                                <input
-                                    type="text"
-                                    placeholder="Enter correct city..."
-                                    className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    value={manualSearchQuery}
-                                    onChange={(e) => setManualSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
-                                />
-                                <button
-                                    onClick={handleManualLocationSearch}
-                                    className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-                                >
-                                    Set Location
-                                </button>
+                            <div className="mt-2 flex gap-2">
+                                <input type="text" value={manualSearchQuery} onChange={e => setManualSearchQuery(e.target.value)} className="border rounded px-2 text-sm bg-white dark:bg-gray-700 dark:text-white" placeholder="City name..." />
+                                <button onClick={handleManualLocationSearch} className="bg-indigo-600 text-white px-2 py-1 rounded text-xs">Set</button>
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setTrackingEnabled(!trackingEnabled)}
-                            className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${trackingEnabled ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800' : 'bg-gray-100 text-gray-600'}`}
-                        >
-                            {trackingEnabled ? <Activity size={16} /> : <Pause size={16} />}
-                            {trackingEnabled ? 'Active' : 'Paused'}
-                        </button>
-                    </div>
                 </div>
 
-                {/* 2. Smart Alert Section */}
-                {crowdDensity === 'Heavy' && (
-                    <AlertBanner
-                        type="heavy"
-                        message="Heavy crowd detected in your zone! Maintain safety distances."
-                    />
-                )}
-                {crowdDensity === 'Medium' && (
-                    <AlertBanner
-                        type="medium"
-                        message="Crowd levels are rising. Keep an eye on the heatmap."
-                    />
-                )}
+                {/* 2. Smart Alert Section - MOVED TO MAP OVERLAY */}
 
-                {/* 3. Main Grid Layout */}
+                {/* 3. Main Grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-                    {/* Left Column: Stats & Map (2/3 width) */}
-                    <div className="xl:col-span-2 space-y-6">
+                    {/* Left: Map & Smart Overlay */}
+                    <div className="xl:col-span-2 relative">
+                        {/* Map Container */}
+                        <div className="relative group rounded-[26px] overflow-hidden shadow-2xl h-[500px]">
+                            <MapComponent
+                                users={otherUsers}
+                                userLocation={location}
+                                className="h-full w-full"
+                                radius={detectionRadius}
+                                safeZoneLocation={safeZone}
+                            />
 
-                        {/* Stats Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <StatCard
-                                title="Current Density"
-                                value={crowdDensity}
-                                icon={Users}
-                                trend="+12%"
-                                trendUp={true}
-                                color="blue"
-                            />
-                            <StatCard
-                                title="People Nearby"
-                                value={activeUsers.toString()}
-                                icon={MapPin}
-                                trend="+5"
-                                trendUp={true}
-                                color="purple"
-                            />
-                            <StatCard
-                                title="Safety Score"
-                                value="94/100"
-                                icon={CheckCircle}
-                                trend="Stable"
-                                trendUp={true}
-                                color="green"
-                            />
-                        </div>
-
-                        {/* Hero Live Map */}
-                        <div className="relative group">
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[26px] opacity-30 blur group-hover:opacity-50 transition duration-1000"></div>
-                            <div className="relative">
-                                <MapComponent users={otherUsers} userLocation={location} className="h-[450px] w-full shadow-2xl" />
+                            {/* Feature 1: Live Density Badge FLOAT */}
+                            <div className={`absolute top-4 left-4 z-[500] px-4 py-2 rounded-2xl shadow-lg backdrop-blur-md flex items-center gap-3 transition-colors duration-500 ${getDensityColor(crowdDensity)}`}>
+                                <Activity className="animate-pulse" size={20} />
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider opacity-80">Live Density</p>
+                                    <p className="text-lg font-black">{crowdDensity} ({crowdCount})</p>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Crowd Comparison Chart */}
-                        <CrowdComparison />
+                            {/* Feature 4: Cooldown Timer FLOAT */}
+                            {cooldownRemaining > 0 && (
+                                <div className="absolute top-4 right-16 z-[500] bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-xl flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping"></div>
+                                    <span className="text-xs font-mono">Cooldown: {cooldownRemaining}s</span>
+                                </div>
+                            )}
+
+                            {/* Feature 3: Radius Selector FLOAT (Bottom Center) */}
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[500] bg-white/90 dark:bg-gray-800/90 backdrop-blur-md p-1.5 rounded-2xl shadow-xl flex items-center gap-1 border border-gray-200 dark:border-gray-700">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase px-2">Radius</span>
+                                {[25, 50, 100].map((r) => (
+                                    <button
+                                        key={r}
+                                        onClick={() => setDetectionRadius(r as any)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${detectionRadius === r ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 scale-105' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                    >
+                                        {r}m
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Moved Feature 5: Safe Zone Callout (Overlay Bottom Right) */}
+                            {safeZone && (
+                                <div className="absolute bottom-6 right-6 z-[500] p-3 bg-green-50/90 dark:bg-green-900/90 backdrop-blur-md border border-green-200 rounded-2xl flex items-center gap-3 shadow-lg max-w-xs animate-in slide-in-from-bottom-5">
+                                    <div className="p-2 bg-green-100 dark:bg-green-800 rounded-lg text-green-600 dark:text-green-300">
+                                        <Navigation size={18} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-green-900 dark:text-green-100 text-sm">Safe Zone</h4>
+                                        <p className="text-[10px] text-green-700 dark:text-green-300 leading-tight">Low-density area ~100m NE.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Moved Alert Banner overlay (Top Center) */}
+                            {crowdDensity === 'Heavy' && (
+                                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[500] min-w-[300px]">
+                                    <AlertBanner type="heavy" message="High density zone! Spike detected." />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Right Column: Quick Actions & Saved (1/3 width) */}
+                    {/* Right: Actions */}
                     <div className="space-y-6">
-
-                        {/* Saved Locations */}
                         <SavedLocations />
 
-                        {/* Quick Actions Panel */}
-                        <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 transition-colors">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => handleQuickAction('Heatmap')}
-                                    className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl text-sm font-medium transition-all flex flex-col items-center gap-2 border border-transparent hover:border-indigo-100 text-gray-600 dark:text-gray-300"
-                                >
-                                    <TrendingUp size={20} />
-                                    Heatmap
-                                </button>
-                                <button
-                                    onClick={() => handleQuickAction('Safe Route')}
-                                    className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400 rounded-xl text-sm font-medium transition-all flex flex-col items-center gap-2 border border-transparent hover:border-green-100 text-gray-600 dark:text-gray-300"
-                                >
-                                    <Navigation size={20} />
-                                    Safe Route
-                                </button>
-                                <button
-                                    onClick={() => handleQuickAction('Smart Check-In')}
-                                    className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 rounded-xl text-sm font-medium transition-all flex flex-col items-center gap-2 border border-transparent hover:border-purple-100 text-gray-600 dark:text-gray-300"
-                                >
-                                    <CheckCircle size={20} />
-                                    Check-In
-                                </button>
-                                <button
-                                    onClick={() => handleQuickAction('Share Location')}
-                                    className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-sm font-medium transition-all flex flex-col items-center gap-2 border border-transparent hover:border-blue-100 text-gray-600 dark:text-gray-300"
-                                >
-                                    <MapPin size={20} />
-                                    Share Loc
-                                </button>
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-bold text-gray-900 dark:text-white">Live Stats</h3>
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/30 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                                    Real-time
+                                </span>
                             </div>
 
-                            <EmergencyButton />
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-2xl">
+                                    <span className="text-sm text-gray-500">Spike Risk</span>
+                                    <span className={`text-sm font-bold ${crowdCount > 15 ? 'text-red-500' : 'text-green-500'}`}>
+                                        {crowdCount > 15 ? 'High' : 'Low'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-2xl">
+                                    <span className="text-sm text-gray-500">Zone Status</span>
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                        {lastSpikeTime ? `Spike at ${new Date(lastSpikeTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Stable'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="my-6 h-px bg-gray-100 dark:bg-gray-700"></div>
+
+                            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Actions</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => handleQuickAction('Check-in')} className="p-3 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 transition">Check In</button>
+                                <button onClick={() => handleQuickAction('Alert')} className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 transition">SOS Alert</button>
+                            </div>
+
+                            <div className="mt-4">
+                                <EmergencyButton />
+                            </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </DashboardLayout>
     );
