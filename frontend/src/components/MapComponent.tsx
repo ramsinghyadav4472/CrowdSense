@@ -19,7 +19,7 @@ const userIcon = createIcon('#3b82f6'); // Blue for current user
 interface MapComponentProps {
     users: any[];
     userLocation: { lat: number; lng: number } | null;
-    className?: string;
+    className?: string; // Enhanced with className support
     radius?: number; // Feature 3: Dynamic Radius
     safeZoneLocation?: { lat: number; lng: number } | null; // Feature 5: Safe Zone
 }
@@ -88,6 +88,20 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
 
                 <MapUpdater userLocation={userLocation} />
 
+                {/* Safe Zone Highlight */}
+                {safeZoneLocation && (
+                    <>
+                        <Circle
+                            center={[safeZoneLocation.lat, safeZoneLocation.lng]}
+                            radius={40}
+                            pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.3, weight: 2, dashArray: '5, 5' }}
+                        />
+                        <Marker position={[safeZoneLocation.lat, safeZoneLocation.lng]} icon={createIcon('#16a34a')}>
+                            <Popup>Safe Zone (Recommended)</Popup>
+                        </Marker>
+                    </>
+                )}
+
                 {/* Current User */}
                 {userLocation && (
                     <>
@@ -98,7 +112,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ users, userLocation, classN
                         <Circle
                             center={[userLocation.lat, userLocation.lng]}
                             radius={radius}
-                            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1, dashArray: '4' }}
+                            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, dashArray: '4' }}
                         />
                     </>
                 )}
