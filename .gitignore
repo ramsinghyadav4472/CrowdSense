@@ -1,0 +1,12 @@
+# Maven
+backend/target/
+
+# Node
+frontend/node_modules/
+
+# Env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
