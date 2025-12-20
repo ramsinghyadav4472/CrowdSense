@@ -1,8 +1,5 @@
 package com.crowdtracking.payload.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 public class MessageResponse {
     private String message;
 

@@ -1,7 +1,6 @@
 package com.crowdtracking.payload.request;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
 
 public class LoginRequest {
     @NotBlank

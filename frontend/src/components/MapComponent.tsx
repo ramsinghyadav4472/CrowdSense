@@ -14,7 +14,13 @@ const createIcon = (color: string) => {
     });
 };
 
-const userIcon = createIcon('#3b82f6'); // Blue for current user
+const userIcon = new L.DivIcon({
+    className: 'custom-icon',
+    html: `<div class="animate-pulse-ring absolute -inset-4 bg-blue-500/30 rounded-full"></div>
+           <div style="background-color: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; z-index: 10;"></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+});
 
 interface MapComponentProps {
     users: any[];

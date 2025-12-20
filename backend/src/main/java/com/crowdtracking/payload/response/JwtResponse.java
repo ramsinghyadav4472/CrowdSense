@@ -1,6 +1,5 @@
 package com.crowdtracking.payload.response;
 
-import lombok.Data;
 import java.util.List;
 
 public class JwtResponse {
