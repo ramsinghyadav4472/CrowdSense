@@ -1,8 +1,13 @@
 # Maven
+target/
 backend/target/
 
 # Node
+node_modules/
 frontend/node_modules/
+
+# Logs
+*.log
 
 # Env
 .env
