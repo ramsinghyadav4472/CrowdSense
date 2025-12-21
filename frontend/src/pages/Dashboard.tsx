@@ -9,6 +9,10 @@ import SavedLocations from '../components/dashboard/SavedLocations';
 import EmergencyButton from '../components/dashboard/EmergencyButton';
 import { MapPin, Navigation, Activity } from 'lucide-react';
 import toast from 'react-hot-toast';
+import SmartInsightsWidget from '../components/dashboard/SmartInsightsWidget';
+import DetailedCrowdTimeline from '../components/dashboard/DetailedCrowdTimeline';
+
+import { Ghost, Shield } from 'lucide-react';
 
 // Define User Interface
 interface OtherUser {
@@ -36,6 +40,18 @@ const Dashboard = () => {
 
     // Feature 5: Safe Zone
     const [safeZone, setSafeZone] = useState<{ lat: number, lng: number } | null>(null);
+
+    // Premium Features State
+    const [crowdHistory, setCrowdHistory] = useState<{ time: string; count: number; density: string }[]>([]);
+    const [trend, setTrend] = useState<'rising' | 'falling' | 'stable'>('stable');
+    const [trendDelta, setTrendDelta] = useState(0);
+    const [waitTime, setWaitTime] = useState<number | null>(null);
+    const [isPassiveMode, setIsPassiveMode] = useState(false);
+
+    const togglePassiveMode = () => {
+        setIsPassiveMode(!isPassiveMode);
+        toast.success(isPassiveMode ? 'Live Mode Active' : 'Ghost Mode Activated 👻');
+    };
 
     // Accuracy Warning Effect
     useEffect(() => {
@@ -103,6 +119,27 @@ const Dashboard = () => {
             if (newCount > 35) newDensity = 'Heavy';
             else if (newCount > 15) newDensity = 'Medium';
             setCrowdDensity(newDensity);
+
+            // Update History & Trend
+            setCrowdHistory(prev => {
+                const newHistory = [...prev, { time: new Date().toISOString(), count: newCount, density: newDensity }].slice(-20);
+
+                // Calculate Trend
+                if (newHistory.length > 2) {
+                    const recent = newHistory.slice(-3);
+                    const avgChange = (recent[recent.length - 1].count - recent[0].count) / 3;
+                    setTrendDelta(Number(avgChange.toFixed(1)));
+                    setTrend(avgChange > 0.5 ? 'rising' : avgChange < -0.5 ? 'falling' : 'stable');
+                }
+                return newHistory;
+            });
+
+            // Calculate Wait Time
+            if (newDensity === 'Heavy') {
+                setWaitTime(Math.max(5, Math.floor(newCount / 4)));
+            } else {
+                setWaitTime(null);
+            }
 
             // Feature 4: Cooldown Timer (Simulated)
             if (newDensity === 'Heavy') {
@@ -201,6 +238,20 @@ const Dashboard = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Feature 8: Context-Aware Header Actions */}
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={togglePassiveMode}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg ${isPassiveMode
+                                ? 'bg-indigo-600 text-white shadow-indigo-500/30 ring-2 ring-indigo-400 ring-offset-2 ring-offset-gray-100 dark:ring-offset-gray-900'
+                                : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300'
+                                }`}
+                        >
+                            {isPassiveMode ? <Ghost size={16} className="animate-pulse" /> : <Shield size={16} />}
+                            {isPassiveMode ? 'Ghost Mode' : 'Live Mode'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* 2. Smart Alert Section - MOVED TO MAP OVERLAY */}
@@ -271,6 +322,10 @@ const Dashboard = () => {
                                 </div>
                             )}
                         </div>
+                        {/* NEW: Detailed Crowd Timeline Below Map */}
+                        <div className="mt-6 animate-in slide-in-from-bottom-4 duration-700 delay-150">
+                            <DetailedCrowdTimeline data={crowdHistory} height={350} />
+                        </div>
                     </div>
 
                     {/* Right: Actions */}
@@ -311,6 +366,17 @@ const Dashboard = () => {
                             <div className="mt-4">
                                 <EmergencyButton />
                             </div>
+                        </div>
+
+                        {/* NEW: Smart Insights Widget */}
+                        <div className="animate-in fade-in slide-in-from-right-8 duration-700 delay-200">
+                            <SmartInsightsWidget
+                                crowdDensity={crowdDensity}
+                                trend={trend}
+                                trendDelta={trendDelta}
+                                waitTime={waitTime}
+                                isPassiveMode={isPassiveMode}
+                            />
                         </div>
                     </div>
                 </div>
