@@ -1,7 +1,7 @@
 import { Client } from '@stomp/stompjs';
 
 
-const SOCKET_URL = 'ws://localhost:8081/ws-crowd';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'ws://localhost:8081/ws-crowd';
 
 class SocketService {
     client: Client;
