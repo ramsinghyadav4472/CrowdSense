@@ -163,6 +163,67 @@ Sometimes when merging, two developers might edit the same line of code. Git wil
 
 ---
 
+---
+
+## 🧠 How I Manage Branches
+
+### 🔹 1. Keep the Main Branch Stable
+
+I use `master` (or `main`) as the stable, production-ready branch.
+
+- No direct development is done on this branch.
+- Only tested and reviewed code is merged here.
+
+### 🔹 2. Use Feature-Based Branching
+
+Every new change is developed in a separate feature branch.
+
+**Examples from my project:**
+
+- `frontend-ui-animations-and-insights`
+- `backend-crowd-tracking-enhancements`
+
+This keeps work isolated and prevents breaking the main code.
+
+### 🔹 3. Make Scoped Commits
+
+I commit only relevant files. Commit messages are clear and descriptive.
+
+**Example:**
+> `feat(frontend): add animated login and crowd timeline`
+
+### 🔹 4. Merge Through Review
+
+Feature branches are merged into `master` after completion. This ensures:
+
+- Clean code history
+- Easy debugging
+- Safe integration
+
+### 🔹 5. Use Version Tags
+
+I tag important milestones using semantic versioning.
+
+**Examples:**
+
+- `v1.0.0`
+
+This helps track releases and rollback if needed.
+
+### 🔹 6. Clean Up Old Branches
+
+After merging, I delete unused or experimental branches. This keeps the repository clean and easy to maintain.
+
+### 🔹 7. Merge Strategy (Fast-Forward)
+
+I use a **fast-forward merge strategy** to maintain a linear and clean history.
+
+- Feature branches are merged into `master` only when there is no divergence.
+- Avoids unnecessary merge commits and simplifies debugging.
+- All merges are verified for stability before integration.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
