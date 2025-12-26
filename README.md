@@ -63,13 +63,13 @@ CrowdSense/
 - **React (Vite)**: Fast, modern UI library.
 - **Tailwind CSS**: Utility-first styling for rapid design.
 - **Leaflet / React-Leaflet**: Open-source mapping library.
-- **Socket.io / Stomp**: Real-time bi-directional communication.
+- **Socket.io**: Real-time bi-directional communication.
 
 ### Backend
 
 - **Java 17 (Spring Boot)**: Robust, enterprise-grade backend framework.
 - **MongoDB**: NoSQL database for efficient geospatial queries ($near, $geoWithin).
-- **Spring Security + JWT**: Stateless authentication mechanism.
+- **Spring Security**: Stateless authentication mechanism.
 
 ### DevOps
 
